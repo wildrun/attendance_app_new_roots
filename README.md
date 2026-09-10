@@ -3,8 +3,8 @@
 Turns a Zoom participant report into scored attendance on the Fellow roster
 Google Sheet, so nobody has to compare two lists by hand.
 
-- **Live app:** _(fill in after deploying — see "Deploying" below)_
-- **Roster Sheet:** _(fill in with your copy's link)_
+- **Live app:https://attendance-tracker-ccv2.onrender.com/preview
+- **Roster Sheet:https://docs.google.com/spreadsheets/d/1JTHk-3pfDmLto0Vmw77uYw1M1ONF2t0YBdcXh3DfNfg/edit?pli=1&gid=2110501583#gid=2110501583
 
 ---
 
