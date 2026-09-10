@@ -13,8 +13,17 @@
   <div class="stat"><b>{{ report.present }}</b><span>Present</span></div>
   <div class="stat"><b>{{ report.absent }}</b><span>Absent</span></div>
   <div class="stat"><b>{{ report.needs_review }}</b><span>Need a look</span></div>
+  {% if report.not_scored %}
+  <div class="stat"><b>{{ report.not_scored }}</b><span>Not scored</span></div>
+  {% endif %}
   <div class="stat"><b>{{ report.unmatched|length }}</b><span>Not on roster</span></div>
 </div>
+
+{% if report.not_scored %}
+<div class="notice"><strong>{{ report.not_scored }} Fellow(s) are no longer on the program</strong>
+  (withdrawn or removed on your roster). They are listed with their roster status instead of being
+  marked absent, so they do not count against your attendance figures.</div>
+{% endif %}
 
 {% if report.rows_other_dates %}
 <div class="notice"><strong>{{ report.rows_other_dates }} row(s) were left out</strong> because they
@@ -53,7 +62,7 @@
     <tbody>
     {% for r in report.results if r.needs_review %}
       <tr><td>{{ r.name }}</td>
-        <td><span class="pill {{ 'present' if r.status == 'Present' else 'absent' }}">{{ r.status }}</span></td>
+        <td><span class="pill {{ 'present' if r.status == 'Present' else ('inactive' if r.status.startswith('Not scored') else 'absent') }}">{{ r.status }}</span></td>
         <td class="notes">{{ r.note_text }}</td></tr>
     {% endfor %}
     </tbody>
@@ -83,14 +92,15 @@
 <details open>
   <summary>All {{ report.results|length }} Fellows</summary>
   <div class="tablewrap"><table>
-    <thead><tr><th>Fellow</th><th>Email</th><th>Status</th><th>Minutes present</th>
-      <th>Minutes missed</th><th>Matched by</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Fellow</th><th>Email</th><th>Enrollment</th><th>Status</th>
+      <th>Minutes present</th><th>Minutes missed</th><th>Matched by</th><th>Notes</th></tr></thead>
     <tbody>
     {% for r in report.results %}
       <tr>
         <td>{{ r.name }}{% if r.needs_review %} <span class="pill review">check</span>{% endif %}</td>
         <td>{{ r.email }}</td>
-        <td><span class="pill {{ 'present' if r.status == 'Present' else 'absent' }}">{{ r.status }}</span></td>
+        <td>{{ r.enrollment_status or '—' }}</td>
+        <td><span class="pill {{ 'present' if r.status == 'Present' else ('inactive' if r.status.startswith('Not scored') else 'absent') }}">{{ r.status }}</span></td>
         <td>{{ r.minutes_present }}</td><td>{{ r.minutes_missed }}</td>
         <td>{{ r.match_method }}</td><td class="notes">{{ r.note_text }}</td>
       </tr>

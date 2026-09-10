@@ -9,6 +9,7 @@
   <div class="stat"><b>{{ report.present }}</b><span>Present</span></div>
   <div class="stat"><b>{{ report.absent }}</b><span>Absent</span></div>
   <div class="stat"><b>{{ report.needs_review }}</b><span>Need a look</span></div>
+  {% if report.not_scored %}<div class="stat"><b>{{ report.not_scored }}</b><span>Not scored</span></div>{% endif %}
   <div class="stat"><b>{{ report.unmatched|length }}</b><span>Not on roster</span></div>
 </div>
 

@@ -75,6 +75,7 @@ def _summary_lines(report, window, grace) -> list:
         "Present: %d. Absent: %d. Needs review: %d." % (
             report.present, report.absent, report.needs_review,
         ),
+        "Not scored (no longer on the program): %d." % report.not_scored,
         "Zoom rows used: %d. Rows outside this session: %d. Not on roster: %d." % (
             report.rows_used, report.rows_other_dates, len(report.unmatched),
         ),
@@ -251,13 +252,15 @@ def download(token: str, session_date: str = "", start: str = DEFAULT_START,
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow([
-        "Fellow Name", "Email", "Attendance Status", "Minutes Present",
-        "Minutes Missed", "Matched By", "Needs Review", "Notes",
+        "Fellow Name", "Email", "Enrollment Status", "Attendance Status",
+        "Minutes Present", "Minutes Missed", "Matched By", "Needs Review",
+        "Notes",
     ])
     for r in report.results:
         writer.writerow([
-            r.name, r.email, r.status, r.minutes_present, r.minutes_missed,
-            r.match_method, "Yes" if r.needs_review else "", r.note_text,
+            r.name, r.email, r.enrollment_status, r.status, r.minutes_present,
+            r.minutes_missed, r.match_method, "Yes" if r.needs_review else "",
+            r.note_text,
         ])
     if report.unmatched:
         writer.writerow([])

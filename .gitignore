@@ -1,7 +1,13 @@
 .venv/
 __pycache__/
 *.pyc
-.env
-service-account*.json
 .pytest_cache/
-test-auth-55c6f-b0103f96a78a.json
+.env
+
+# Google service-account keys download with unpredictable names
+# (e.g. test-auth-55c6f-b0103f96a78a.json), so ignore every JSON file at
+# the repo root rather than relying on matching a name pattern.
+/*.json
+service-account*.json
+*-adminsdk-*.json
+.DS_Store

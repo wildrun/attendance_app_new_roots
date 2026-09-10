@@ -246,3 +246,67 @@ def test_unrelated_name_gets_no_suggestion():
     index = RosterIndex([Fellow(name="Ivan Okada", email="ivan.okada@example.com")])
     match, _ = index.suggest("Sam Torres")
     assert match is None
+
+
+# --- Fellows who have left the program ------------------------------------
+
+def _roster_with_status(**statuses):
+    """The sample roster, with named Fellows given a different enrollment status."""
+    fellows = []
+    for f in load_roster():
+        status = statuses.get(f.email.lower(), f.enrollment_status)
+        fellows.append(Fellow(name=f.name, email=f.email, cohort=f.cohort,
+                              enrollment_status=status, row_number=f.row_number))
+    return fellows
+
+
+def _score_with(**statuses):
+    rows, _ = load_rows()
+    return score_session(rows, _roster_with_status(**statuses), WINDOW)
+
+
+def test_withdrawn_no_show_is_not_marked_absent():
+    """Alejandro Aoki never joined; withdrawn, he should not count as absent."""
+    report = _score_with(**{"alejandro.aoki@example.com": "Withdrawn"})
+    aoki = find(report, "alejandro.aoki@example.com")
+    assert aoki.status == "Not scored - Withdrawn"
+    assert "not scored" in aoki.note_text.lower()
+    assert aoki.needs_review is False
+
+
+def test_removed_fellow_uses_the_rosters_own_wording():
+    report = _score_with(**{"alejandro.aoki@example.com": "Removed"})
+    assert find(report, "alejandro.aoki@example.com").status == "Not scored - Removed"
+
+
+def test_withdrawn_fellow_who_attended_is_flagged_not_hidden():
+    """A withdrawn Fellow turning up usually means the roster is stale."""
+    report = _score_with(**{"reza.ahmadi@example.com": "Withdrawn"})
+    reza = find(report, "reza.ahmadi@example.com")
+    assert reza.status == "Not scored - Withdrawn"
+    assert reza.minutes_present > 0          # their time is still reported
+    assert reza.needs_review is True
+    assert "roster is up to date" in reza.note_text
+
+
+def test_not_scored_fellows_are_excluded_from_the_counts():
+    baseline = _score_with()
+    report = _score_with(**{
+        "alejandro.aoki@example.com": "Withdrawn",   # a no-show
+        "reza.ahmadi@example.com": "Removed",        # an attendee
+    })
+    assert report.not_scored == 2
+    assert report.absent == baseline.absent - 1      # the no-show left the tally
+    assert report.present == baseline.present - 1    # so did the attendee
+    assert len(report.results) == len(baseline.results)   # nobody dropped
+
+
+def test_blank_enrollment_status_is_treated_as_active():
+    report = _score_with(**{"reza.ahmadi@example.com": ""})
+    assert find(report, "reza.ahmadi@example.com").status == PRESENT
+
+
+def test_enrollment_status_is_carried_into_the_results():
+    report = _score_with(**{"alejandro.aoki@example.com": "Withdrawn"})
+    assert find(report, "alejandro.aoki@example.com").enrollment_status == "Withdrawn"
+    assert find(report, "reza.ahmadi@example.com").enrollment_status == "Active"

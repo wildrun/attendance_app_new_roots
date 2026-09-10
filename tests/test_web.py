@@ -140,9 +140,9 @@ def test_csv_download_matches_the_preview(client):
     assert page.status_code == 200
     assert "attachment" in page.headers["content-disposition"]
     rows = list(csv.reader(page.text.splitlines()))
-    assert rows[0][:3] == ["Fellow Name", "Email", "Attendance Status"]
-    jonah = [r for r in rows if len(r) > 2 and r[1] == "jonah.whitaker@example.com"][0]
-    assert jonah[2] == "Absent"
+    assert rows[0][:4] == ["Fellow Name", "Email", "Enrollment Status", "Attendance Status"]
+    jonah = [r for r in rows if len(r) > 3 and r[1] == "jonah.whitaker@example.com"][0]
+    assert jonah[3] == "Absent"
 
 
 def test_changing_the_window_changes_the_scores(client):
@@ -167,3 +167,32 @@ def test_injected_instruction_does_not_mark_everyone_present(client):
     assert "Absent" in statuses
     injected = [u for u in WRITTEN["unmatched"] if "pre-verified" in u.display_name.lower()]
     assert len(injected) == 1
+
+
+def test_preview_explains_fellows_who_left_the_program(client, monkeypatch):
+    """The banner and the enrollment column only appear when they apply."""
+    def roster_with_leavers(spreadsheet_id, worksheet_name=""):
+        fellows, title = fake_roster(spreadsheet_id, worksheet_name)
+        changed = []
+        for f in fellows:
+            status = f.enrollment_status
+            if f.email.lower() == "alejandro.aoki@example.com":
+                status = "Withdrawn"
+            elif f.email.lower() == "reza.ahmadi@example.com":
+                status = "Removed"
+            changed.append(Fellow(name=f.name, email=f.email, cohort=f.cohort,
+                                  enrollment_status=status, row_number=f.row_number))
+        return changed, title
+
+    monkeypatch.setattr(main, "read_roster", roster_with_leavers)
+    page = upload(client)
+    assert page.status_code == 200
+    assert "2 Fellow(s) are no longer on the program" in page.text
+    assert "Not scored - Withdrawn" in page.text
+    assert "Not scored - Removed" in page.text
+    assert "pill inactive" in page.text
+
+
+def test_banner_is_absent_when_every_fellow_is_active(client):
+    page = upload(client)
+    assert "no longer on the program" not in page.text

@@ -21,8 +21,8 @@ COHORT_HEADERS = ("cohort",)
 STATUS_HEADERS = ("enrollment status", "status", "enrolment status")
 
 RESULT_HEADERS = [
-    "Fellow Name", "Email", "Attendance Status", "Minutes Present",
-    "Minutes Missed", "Matched By", "Needs Review", "Notes",
+    "Fellow Name", "Email", "Enrollment Status", "Attendance Status",
+    "Minutes Present", "Minutes Missed", "Matched By", "Needs Review", "Notes",
 ]
 UNMATCHED_HEADERS = [
     "Zoom Display Name", "Zoom Email", "Minutes In Session", "Why Unmatched",
@@ -154,8 +154,9 @@ def write_results(
     body = [RESULT_HEADERS]
     for r in results:
         body.append([
-            r.name, r.email, r.status, r.minutes_present, r.minutes_missed,
-            r.match_method, "Yes" if r.needs_review else "", r.note_text,
+            r.name, r.email, r.enrollment_status, r.status, r.minutes_present,
+            r.minutes_missed, r.match_method, "Yes" if r.needs_review else "",
+            r.note_text,
         ])
 
     body.append([])

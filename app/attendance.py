@@ -7,8 +7,8 @@ from .matching import (
     BY_EMAIL, BY_NAME, BY_NAME_REVERSED, RosterIndex, _is_device, normalize_email,
 )
 from .models import (
-    ABSENT, ABSENT_NO_RECORD, PRESENT, Fellow, Result, SessionWindow,
-    UnmatchedRow, ZoomRow,
+    ABSENT, ABSENT_NO_RECORD, NOT_SCORED, PRESENT, Fellow, Result,
+    SessionWindow, UnmatchedRow, ZoomRow, is_active, not_scored_status,
 )
 from .scoring import minutes_in_window
 
@@ -30,7 +30,15 @@ class Report:
 
     @property
     def absent(self) -> int:
-        return sum(1 for r in self.results if r.status != PRESENT)
+        """Counts only Fellows who were expected at the session."""
+        return sum(
+            1 for r in self.results
+            if r.status not in (PRESENT,) and not r.status.startswith(NOT_SCORED)
+        )
+
+    @property
+    def not_scored(self) -> int:
+        return sum(1 for r in self.results if r.status.startswith(NOT_SCORED))
 
     @property
     def needs_review(self) -> int:
@@ -98,11 +106,44 @@ def score_session(
     for fellow in fellows:
         key = normalize_email(fellow.email) or fellow.name.lower()
         notes = list(dict.fromkeys(review_notes.get(key, [])))
+
+        if not is_active(fellow.enrollment_status):
+            # Not expected at this session. Still show any time they spent in
+            # it: a withdrawn Fellow who turns up usually means the roster is
+            # out of date, and that is worth surfacing rather than hiding.
+            attended = minutes_in_window(intervals.get(key, []), window)
+            if attended > 0:
+                notes.append(
+                    "Roster says %s, but they attended %.1f minutes. "
+                    "Check whether the roster is up to date."
+                    % (fellow.enrollment_status.strip(), attended)
+                )
+            else:
+                notes.append(
+                    "Roster says %s, so this session was not scored for them."
+                    % fellow.enrollment_status.strip()
+                )
+            report.results.append(
+                Result(
+                    name=fellow.name,
+                    email=fellow.email,
+                    enrollment_status=fellow.enrollment_status,
+                    status=not_scored_status(fellow.enrollment_status),
+                    minutes_present=attended,
+                    minutes_missed=0.0,
+                    match_method=methods.get(key, "none"),
+                    needs_review=attended > 0,
+                    notes=notes,
+                )
+            )
+            continue
+
         if key not in intervals:
             report.results.append(
                 Result(
                     name=fellow.name,
                     email=fellow.email,
+                    enrollment_status=fellow.enrollment_status,
                     status=ABSENT_NO_RECORD,
                     minutes_present=0.0,
                     minutes_missed=round(window.minutes, 1),
@@ -123,6 +164,7 @@ def score_session(
             Result(
                 name=fellow.name,
                 email=fellow.email,
+                enrollment_status=fellow.enrollment_status,
                 status=PRESENT if missed <= grace_minutes else ABSENT,
                 minutes_present=present,
                 minutes_missed=missed,
