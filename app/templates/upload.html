@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Upload Zoom attendance{% endblock %}
+{% block body %}
+<h2>Score a session's attendance</h2>
+<p class="lede">Upload the participant report from Zoom. You'll see the results before anything is saved.</p>
+
+{% if error %}<div class="error"><strong>We couldn't do that.</strong><br>{{ error }}</div>{% endif %}
+
+<form method="post" action="/preview" enctype="multipart/form-data">
+  <div class="card">
+    <div class="field">
+      <label for="file">1. The Zoom attendance file</label>
+      <p class="hint">In Zoom, go to Reports &rarr; Usage &rarr; click the participant number for your
+        meeting &rarr; Export. Choose that .csv file here.</p>
+      <input type="file" id="file" name="file" accept=".csv,text/csv" required>
+    </div>
+
+    <div class="field">
+      <label for="sheet_url">2. Your roster Google Sheet</label>
+      <p class="hint">Paste the link from your browser's address bar. The Sheet must be shared with
+        {% if service_account %}<span class="mono">{{ service_account }}</span>{% else %}the app's service account{% endif %}
+        as an <strong>Editor</strong>.</p>
+      <input type="url" id="sheet_url" name="sheet_url" value="{{ sheet_url }}"
+             placeholder="https://docs.google.com/spreadsheets/d/..." required>
+    </div>
+
+    <div class="field">
+      <label>3. When the session ran</label>
+      <p class="hint">The date is read from the file automatically. Times are pre-filled for a
+        standard 5:00&ndash;6:30 PM session &mdash; change them if this session was different.</p>
+      <div class="row">
+        <div class="field"><label for="start" class="hint">Start time</label>
+          <input type="time" id="start" name="start" value="{{ start }}" required></div>
+        <div class="field"><label for="end" class="hint">End time</label>
+          <input type="time" id="end" name="end" value="{{ end }}" required></div>
+        <div class="field"><label for="grace" class="hint">Minutes a Fellow may miss</label>
+          <input type="number" id="grace" name="grace" value="{{ grace }}" min="0" max="240" step="1" required></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Check attendance</button>
+      <span class="hint" style="margin:0">Nothing is written to your Sheet at this step.</span>
+    </div>
+  </div>
+</form>
+
+<details>
+  <summary>What the app does with the file</summary>
+  <ol class="steps">
+    <li>Reads every join and leave time, ignoring rows from other dates.</li>
+    <li>Works out how long each person was actually in the session, counting overlapping
+        devices once and treating gaps between rejoins as missed time.</li>
+    <li>Matches people to your roster by email first, then by name.</li>
+    <li>Shows you the results. Nothing is saved until you press the save button.</li>
+  </ol>
+</details>
+{% endblock %}

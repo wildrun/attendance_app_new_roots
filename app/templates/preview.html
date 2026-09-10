@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Check the results{% endblock %}
+{% block body %}
+<h2>Check the results before saving</h2>
+<p class="lede">
+  {{ window.start.strftime('%A %d %B %Y') }},
+  {{ window.start.strftime('%I:%M %p').lstrip('0') }} to {{ window.end.strftime('%I:%M %p').lstrip('0') }}
+  ({{ window.minutes|round|int }} minutes) &middot; roster tab &ldquo;{{ roster_tab }}&rdquo;
+  &middot; from {{ filename }}
+</p>
+
+<div class="stats">
+  <div class="stat"><b>{{ report.present }}</b><span>Present</span></div>
+  <div class="stat"><b>{{ report.absent }}</b><span>Absent</span></div>
+  <div class="stat"><b>{{ report.needs_review }}</b><span>Need a look</span></div>
+  <div class="stat"><b>{{ report.unmatched|length }}</b><span>Not on roster</span></div>
+</div>
+
+{% if report.rows_other_dates %}
+<div class="notice"><strong>{{ report.rows_other_dates }} row(s) were left out</strong> because they
+  fall outside the session times above &mdash; usually leftovers from a different meeting in the same
+  export. If that looks wrong, check the date and times below.</div>
+{% endif %}
+
+{% if report.warnings %}
+<div class="notice"><strong>Some lines in the file could not be read:</strong>
+  <ul>{% for w in report.warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<form method="post" action="/preview" enctype="multipart/form-data" class="card">
+  <label>Not the right session times?</label>
+  <p class="hint">Adjust and re-check. Nothing is saved until you press save.</p>
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="sheet_url" value="{{ sheet_url }}">
+  <div class="row">
+    <div class="field"><label for="d" class="hint">Date</label>
+      <input type="date" id="d" name="session_date" value="{{ session_date }}"></div>
+    <div class="field"><label for="s" class="hint">Start</label>
+      <input type="time" id="s" name="start" value="{{ start }}"></div>
+    <div class="field"><label for="e" class="hint">End</label>
+      <input type="time" id="e" name="end" value="{{ end }}"></div>
+    <div class="field"><label for="g" class="hint">Minutes allowed to miss</label>
+      <input type="number" id="g" name="grace" value="{{ grace }}" min="0" max="240" step="1"></div>
+  </div>
+  <button type="submit" class="secondary">Re-check with these times</button>
+</form>
+
+{% if report.needs_review %}
+<details open>
+  <summary>{{ report.needs_review }} result(s) worth a look before you save</summary>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Fellow</th><th>Status</th><th>Why</th></tr></thead>
+    <tbody>
+    {% for r in report.results if r.needs_review %}
+      <tr><td>{{ r.name }}</td>
+        <td><span class="pill {{ 'present' if r.status == 'Present' else 'absent' }}">{{ r.status }}</span></td>
+        <td class="notes">{{ r.note_text }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</details>
+{% endif %}
+
+{% if report.unmatched %}
+<details>
+  <summary>{{ report.unmatched|length }} people in the Zoom file are not on your roster</summary>
+  <p class="hint">These are usually staff, guest speakers, or someone who joined from a tablet with
+    no name set. They are saved to the Sheet in a separate list so you can check them &mdash; they are
+    never counted as Fellows.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Name shown in Zoom</th><th>Email</th><th>Minutes</th><th>Why</th><th>Suggestion</th></tr></thead>
+    <tbody>
+    {% for u in report.unmatched %}
+      <tr><td>{{ u.display_name }}</td><td>{{ u.email or '—' }}</td>
+        <td>{{ u.minutes_present }}</td><td class="notes">{{ u.reason }}</td>
+        <td class="notes">{{ u.suggestion or '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</details>
+{% endif %}
+
+<details open>
+  <summary>All {{ report.results|length }} Fellows</summary>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Fellow</th><th>Email</th><th>Status</th><th>Minutes present</th>
+      <th>Minutes missed</th><th>Matched by</th><th>Notes</th></tr></thead>
+    <tbody>
+    {% for r in report.results %}
+      <tr>
+        <td>{{ r.name }}{% if r.needs_review %} <span class="pill review">check</span>{% endif %}</td>
+        <td>{{ r.email }}</td>
+        <td><span class="pill {{ 'present' if r.status == 'Present' else 'absent' }}">{{ r.status }}</span></td>
+        <td>{{ r.minutes_present }}</td><td>{{ r.minutes_missed }}</td>
+        <td>{{ r.match_method }}</td><td class="notes">{{ r.note_text }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</details>
+
+<form method="post" action="/write" class="card">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="sheet_id" value="{{ sheet_id }}">
+  <input type="hidden" name="sheet_url" value="{{ sheet_url }}">
+  <input type="hidden" name="session_date" value="{{ session_date }}">
+  <input type="hidden" name="start" value="{{ start }}">
+  <input type="hidden" name="end" value="{{ end }}">
+  <input type="hidden" name="grace" value="{{ grace }}">
+  <label>Save these results</label>
+  <p class="hint">This adds a tab called <strong>{{ tab_name }}</strong> to your Google Sheet.
+    Your roster tab is not changed.</p>
+  <div class="actions">
+    <button type="submit">Save to Google Sheet</button>
+    <a href="/download/{{ token }}?session_date={{ session_date }}&amp;start={{ start }}&amp;end={{ end }}&amp;grace={{ grace }}&amp;sheet_id={{ sheet_id }}">
+      <button type="button" class="secondary">Download as CSV instead</button></a>
+  </div>
+</form>
+{% endblock %}

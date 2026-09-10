@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Attendance Tracker{% endblock %}</title>
+<style>
+  :root{
+    --ink:#1d2321; --muted:#5d6b66; --line:#dfe5e2; --bg:#f6f8f7;
+    --card:#ffffff; --accent:#1f6f4a; --accent-dark:#175639;
+    --warn-bg:#fdf6e3; --warn-line:#e6d3a3; --warn-ink:#6b5316;
+    --bad:#a33a2c; --bad-bg:#fbeeec; --good:#1f6f4a; --good-bg:#e9f3ed;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:32px 20px 72px}
+  header.site{border-bottom:1px solid var(--line);background:var(--card)}
+  header.site .wrap{padding:18px 20px;display:flex;align-items:baseline;gap:12px}
+  header.site h1{font-size:18px;margin:0;letter-spacing:-.01em}
+  header.site span{color:var(--muted);font-size:14px}
+  h2{font-size:24px;letter-spacing:-.02em;margin:0 0 6px}
+  .lede{color:var(--muted);margin:0 0 26px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:24px;margin-bottom:20px}
+  label{display:block;font-weight:600;margin-bottom:6px;font-size:15px}
+  .hint{color:var(--muted);font-size:13.5px;font-weight:400;margin:2px 0 8px}
+  input[type=text],input[type=url],input[type=date],input[type=time],input[type=number],input[type=file]{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+    font:inherit;background:#fff;color:var(--ink)}
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .field{margin-bottom:20px}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .row .field{flex:1;min-width:150px}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;
+    padding:12px 22px;font:inherit;font-weight:600;cursor:pointer}
+  button:hover{background:var(--accent-dark)}
+  button.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  button.secondary:hover{background:var(--bg)}
+  .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .error{background:var(--bad-bg);border:1px solid #e8c4bd;color:var(--bad);
+    padding:14px 16px;border-radius:8px;margin-bottom:22px}
+  .notice{background:var(--warn-bg);border:1px solid var(--warn-line);
+    color:var(--warn-ink);padding:14px 16px;border-radius:8px;margin-bottom:20px}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+  .stat{flex:1;min-width:130px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:14px 16px}
+  .stat b{display:block;font-size:28px;letter-spacing:-.02em}
+  .stat span{color:var(--muted);font-size:13.5px}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);
+    white-space:nowrap;vertical-align:top}
+  th{background:#f2f5f4;font-size:13px;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--muted);position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:0}
+  td.notes{white-space:normal;min-width:240px;color:var(--muted);font-size:13.5px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12.5px;font-weight:600}
+  .pill.present{background:var(--good-bg);color:var(--good)}
+  .pill.absent{background:var(--bad-bg);color:var(--bad)}
+  .pill.review{background:var(--warn-bg);color:var(--warn-ink)}
+  details{margin-bottom:20px}
+  summary{cursor:pointer;font-weight:600;padding:6px 0}
+  a{color:var(--accent)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px}
+  ol.steps{padding-left:20px;color:var(--muted);font-size:14.5px}
+  ol.steps li{margin-bottom:6px}
+</style>
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <h1>Attendance Tracker</h1><span>New Roots Fellowship</span>
+</div></header>
+<div class="wrap">{% block body %}{% endblock %}</div>
+</body>
+</html>

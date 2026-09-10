@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+service-account*.json
+.pytest_cache/
+test-auth-55c6f-b0103f96a78a.json

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Saved to your Google Sheet{% endblock %}
+{% block body %}
+<h2>Saved to your Google Sheet</h2>
+<p class="lede">The results are in a new tab called <strong>{{ tab_name }}</strong>.
+  Your roster tab was not changed.</p>
+
+<div class="stats">
+  <div class="stat"><b>{{ report.present }}</b><span>Present</span></div>
+  <div class="stat"><b>{{ report.absent }}</b><span>Absent</span></div>
+  <div class="stat"><b>{{ report.needs_review }}</b><span>Need a look</span></div>
+  <div class="stat"><b>{{ report.unmatched|length }}</b><span>Not on roster</span></div>
+</div>
+
+<div class="card">
+  <div class="actions">
+    <a href="{{ tab_url }}" target="_blank" rel="noopener"><button type="button">Open the Google Sheet</button></a>
+    <a href="/"><button type="button" class="secondary">Score another session</button></a>
+  </div>
+</div>
+
+<p class="hint">If you upload this same session again, the app replaces that tab rather than
+  adding a second copy &mdash; so it is safe to re-run.</p>
+{% endblock %}
