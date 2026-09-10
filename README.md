@@ -55,10 +55,6 @@ don't count towards your present or absent totals. If one of them *did* turn up,
 their minutes are still shown and they're flagged for review — that usually
 means the roster needs updating.
 
-Below the Fellows there's a second list: **people in the Zoom file who aren't on
-your roster.** That's usually staff, guest speakers, or someone who dialled in
-from a tablet without setting their name. They're never counted as Fellows, but
-they're shown so you can check nobody was missed.
 ---
 
 ## Part 2 — Architecture and decisions
