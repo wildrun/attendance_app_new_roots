@@ -15,6 +15,36 @@ from .scoring import minutes_in_window
 # Program policy: miss more than this many minutes and you are absent.
 GRACE_MINUTES = 10.0
 
+# Form value meaning "score every cohort on the roster".
+ALL_COHORTS = "*"
+
+
+def available_cohorts(fellows: Sequence[Fellow]) -> List[Tuple[str, int, int]]:
+    """Distinct cohorts as (name, total Fellows, active Fellows), commonest first.
+
+    Fellows whose cohort cell is blank are grouped under "" so they are still
+    reachable rather than silently unselectable.
+    """
+    totals: Dict[str, int] = {}
+    actives: Dict[str, int] = {}
+    for fellow in fellows:
+        name = (fellow.cohort or "").strip()
+        totals[name] = totals.get(name, 0) + 1
+        if is_active(fellow.enrollment_status):
+            actives[name] = actives.get(name, 0) + 1
+    return sorted(
+        ((name, count, actives.get(name, 0)) for name, count in totals.items()),
+        key=lambda item: (-item[1], item[0]),
+    )
+
+
+def filter_by_cohort(fellows: Sequence[Fellow], cohort: str) -> List[Fellow]:
+    """`ALL_COHORTS` (or an empty choice) keeps everyone."""
+    if not cohort or cohort == ALL_COHORTS:
+        return list(fellows)
+    wanted = cohort.strip().lower()
+    return [f for f in fellows if (f.cohort or "").strip().lower() == wanted]
+
 
 @dataclass
 class Report:

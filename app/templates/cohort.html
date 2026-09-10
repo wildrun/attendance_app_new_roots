@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Which cohort?{% endblock %}
+{% block body %}
+<h2>Which cohort was this session for?</h2>
+<p class="lede">Your roster holds {{ roster_size }} Fellows across {{ cohorts|length }} cohorts.
+  Pick the one this session belongs to, so Fellows from the other cohorts aren't
+  marked absent for a session they weren't expected at.</p>
+
+<form method="post" action="/preview" enctype="multipart/form-data">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="sheet_url" value="{{ sheet_url }}">
+  <input type="hidden" name="session_date" value="{{ session_date }}">
+  <input type="hidden" name="start" value="{{ start }}">
+  <input type="hidden" name="end" value="{{ end }}">
+  <input type="hidden" name="grace" value="{{ grace }}">
+
+  <div class="card">
+    <fieldset style="border:0;padding:0;margin:0">
+      <legend class="hint" style="padding:0 0 10px">
+        From the tab &ldquo;{{ roster_tab }}&rdquo;</legend>
+
+      {% for name, total, active in cohorts %}
+      <label class="choice">
+        <input type="radio" name="cohort" value="{{ name }}" {% if loop.first %}checked{% endif %}>
+        <span>
+          <strong>{{ name or "(no cohort listed)" }}</strong>
+          <span class="hint" style="margin:0">
+            {{ active }} active Fellow{{ '' if active == 1 else 's' }}{% if total != active %},
+            {{ total - active }} withdrawn or removed{% endif %}
+          </span>
+        </span>
+      </label>
+      {% endfor %}
+
+      <label class="choice">
+        <input type="radio" name="cohort" value="{{ all_cohorts }}">
+        <span>
+          <strong>Every cohort</strong>
+          <span class="hint" style="margin:0">Score the whole roster together</span>
+        </span>
+      </label>
+    </fieldset>
+
+    <div class="actions" style="margin-top:22px">
+      <button type="submit">Check attendance</button>
+      <a href="/"><button type="button" class="secondary">Start over</button></a>
+    </div>
+  </div>
+</form>
+
+<p class="hint">You can change this later without re-uploading the file.
+  Nothing is saved to your Sheet yet.</p>
+{% endblock %}

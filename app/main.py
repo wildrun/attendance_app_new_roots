@@ -12,7 +12,9 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
-from .attendance import GRACE_MINUTES, score_session
+from .attendance import (
+    ALL_COHORTS, GRACE_MINUTES, available_cohorts, filter_by_cohort, score_session,
+)
 from .models import SessionWindow
 from .scoring import ParseError, dominant_date, parse_zoom_csv
 from .sheets import SheetsError, read_roster, service_account_email, write_results
@@ -63,7 +65,15 @@ def build_window(date_text: str, start_text: str, end_text: str) -> SessionWindo
     return SessionWindow(start=start, end=end)
 
 
-def _summary_lines(report, window, grace) -> list:
+def results_tab_name(session_date: str, cohort: str, multi_cohort: bool) -> str:
+    """Two cohorts can meet on the same day, so the tab carries the cohort."""
+    base = "Attendance %s" % session_date
+    if multi_cohort and cohort and cohort != ALL_COHORTS:
+        return "%s - %s" % (base, cohort)
+    return base
+
+
+def _summary_lines(report, window, grace, cohort="", multi_cohort=False) -> list:
     return [
         "Session: %s, %s to %s (%d minutes)." % (
             window.start.strftime("%A %d %B %Y"),
@@ -76,6 +86,10 @@ def _summary_lines(report, window, grace) -> list:
             report.present, report.absent, report.needs_review,
         ),
         "Not scored (no longer on the program): %d." % report.not_scored,
+        "Cohort scored: %s." % (
+            cohort if cohort and cohort != ALL_COHORTS
+            else ("every cohort on the roster" if multi_cohort else "the whole roster")
+        ),
         "Zoom rows used: %d. Rows outside this session: %d. Not on roster: %d." % (
             report.rows_used, report.rows_other_dates, len(report.unmatched),
         ),
@@ -108,6 +122,7 @@ async def preview(
     end: str = Form(DEFAULT_END),
     grace: float = Form(GRACE_MINUTES),
     session_date: str = Form(""),
+    cohort: str = Form(""),
     token: str = Form(""),
     file: Optional[UploadFile] = File(None),
 ):
@@ -159,7 +174,33 @@ async def preview(
     except SheetsError as exc:
         return fail(str(exc))
 
-    report = score_session(rows, fellows, window, grace_minutes=grace)
+    cohorts = available_cohorts(fellows)
+    multi_cohort = len(cohorts) > 1
+
+    # Ask which cohort this session belongs to, but only when the roster
+    # actually holds more than one. A single-cohort roster never sees this step.
+    if multi_cohort and not cohort:
+        return templates.TemplateResponse(request, "cohort.html", {
+            "cohorts": cohorts,
+            "token": token,
+            "sheet_url": sheet_url,
+            "roster_tab": roster_tab,
+            "session_date": session_date,
+            "start": start,
+            "end": end,
+            "grace": grace,
+            "all_cohorts": ALL_COHORTS,
+            "roster_size": len(fellows),
+        })
+
+    scoped = filter_by_cohort(fellows, cohort)
+    if not scoped:
+        return fail(
+            "No Fellows on the roster are in the cohort '%s'. Choose a different "
+            "cohort and try again." % cohort
+        )
+
+    report = score_session(rows, scoped, window, grace_minutes=grace)
     report.warnings.extend(parse_warnings)
     _UPLOADS[token]["report_meta"] = {
         "sheet_id": sheet_id, "session_date": session_date,
@@ -168,6 +209,10 @@ async def preview(
 
     return templates.TemplateResponse(request, "preview.html", {
         "report": report,
+        "cohort": cohort,
+        "cohorts": cohorts,
+        "multi_cohort": multi_cohort,
+        "all_cohorts": ALL_COHORTS,
         "window": window,
         "grace": grace,
         "token": token,
@@ -177,7 +222,7 @@ async def preview(
         "session_date": session_date,
         "start": start,
         "end": end,
-        "tab_name": "Attendance %s" % session_date,
+        "tab_name": results_tab_name(session_date, cohort, multi_cohort),
         "filename": _UPLOADS[token].get("filename", "attendance.csv"),
     })
 
@@ -191,6 +236,7 @@ def write(
     start: str = Form(...),
     end: str = Form(...),
     grace: float = Form(GRACE_MINUTES),
+    cohort: str = Form(""),
     sheet_url: str = Form(""),
 ):
     _sweep()
@@ -207,13 +253,16 @@ def write(
 
     try:
         fellows, _tab = read_roster(sheet_id)
-        report = score_session(rows, fellows, window, grace_minutes=grace)
+        multi_cohort = len(available_cohorts(fellows)) > 1
+        report = score_session(
+            rows, filter_by_cohort(fellows, cohort), window, grace_minutes=grace,
+        )
         tab_name, tab_url = write_results(
             sheet_id,
-            "Attendance %s" % session_date,
+            results_tab_name(session_date, cohort, multi_cohort),
             report.results,
             report.unmatched,
-            _summary_lines(report, window, grace),
+            _summary_lines(report, window, grace, cohort, multi_cohort),
         )
     except SheetsError as exc:
         return templates.TemplateResponse(request, "upload.html", {
@@ -234,7 +283,7 @@ def write(
 @app.get("/download/{token}")
 def download(token: str, session_date: str = "", start: str = DEFAULT_START,
              end: str = DEFAULT_END, grace: float = GRACE_MINUTES,
-             sheet_id: str = ""):
+             sheet_id: str = "", cohort: str = ""):
     """Always-available fallback: the same results as a CSV."""
     entry = _UPLOADS.get(token)
     if not entry:
@@ -247,7 +296,9 @@ def download(token: str, session_date: str = "", start: str = DEFAULT_START,
     window = build_window(session_date, start, end)
 
     fellows, _tab = read_roster(sheet_id) if sheet_id else ([], "")
-    report = score_session(rows, fellows, window, grace_minutes=grace)
+    report = score_session(
+        rows, filter_by_cohort(fellows, cohort), window, grace_minutes=grace,
+    )
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)

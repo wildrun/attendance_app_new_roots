@@ -196,3 +196,95 @@ def test_preview_explains_fellows_who_left_the_program(client, monkeypatch):
 def test_banner_is_absent_when_every_fellow_is_active(client):
     page = upload(client)
     assert "no longer on the program" not in page.text
+
+
+# --- cohorts --------------------------------------------------------------
+
+def two_cohort_roster(spreadsheet_id, worksheet_name=""):
+    """Split the sample roster: A-M into Fall 2026, N-Z into Spring 2027."""
+    fellows, title = fake_roster(spreadsheet_id, worksheet_name)
+    split = []
+    for f in fellows:
+        surname = f.name.split()[-1].upper()
+        cohort = "Fall 2026" if surname[0] <= "M" else "Spring 2027"
+        split.append(Fellow(name=f.name, email=f.email, cohort=cohort,
+                            enrollment_status=f.enrollment_status,
+                            row_number=f.row_number))
+    return split, title
+
+
+def test_single_cohort_roster_never_asks(client):
+    """The sample roster is all Fall 2026, so the extra step must not appear."""
+    page = upload(client)
+    assert "Which cohort was this session for?" not in page.text
+    assert "Check the results before saving" in page.text
+
+
+def test_multi_cohort_roster_asks_before_scoring(client, monkeypatch):
+    monkeypatch.setattr(main, "read_roster", two_cohort_roster)
+    page = upload(client)
+    assert page.status_code == 200
+    assert "Which cohort was this session for?" in page.text
+    assert "Fall 2026" in page.text and "Spring 2027" in page.text
+    assert "Every cohort" in page.text
+    # No scoring has happened yet.
+    assert "Check the results before saving" not in page.text
+
+
+def test_choosing_a_cohort_scores_only_that_cohort(client, monkeypatch):
+    monkeypatch.setattr(main, "read_roster", two_cohort_roster)
+    token = token_from(upload(client).text)
+    page = client.post("/preview", data={
+        "token": token, "sheet_url": SHEET_URL, "session_date": "2026-08-26",
+        "start": "17:00", "end": "18:30", "grace": "10", "cohort": "Fall 2026",
+    })
+    assert page.status_code == 200
+    assert "Check the results before saving" in page.text
+    # Surnames beyond M belong to the other cohort and must be absent entirely.
+    assert "astrid.abbott@example.com" in page.text        # Abbott -> Fall
+    assert "alejandro.aoki@example.com" in page.text       # Aoki   -> Fall
+    assert "lena.park@example.com" not in page.text        # Park   -> Spring
+
+
+def test_every_cohort_option_scores_the_whole_roster(client, monkeypatch):
+    monkeypatch.setattr(main, "read_roster", two_cohort_roster)
+    token = token_from(upload(client).text)
+    page = client.post("/preview", data={
+        "token": token, "sheet_url": SHEET_URL, "session_date": "2026-08-26",
+        "start": "17:00", "end": "18:30", "grace": "10", "cohort": "*",
+    })
+    assert "astrid.abbott@example.com" in page.text
+    assert "lena.park@example.com" in page.text
+
+
+def test_cohort_appears_in_the_tab_name_so_two_cohorts_do_not_collide(client, monkeypatch):
+    monkeypatch.setattr(main, "read_roster", two_cohort_roster)
+    token = token_from(upload(client).text)
+    client.post("/write", data={
+        "token": token, "sheet_id": "1AbCdEf_TestSheetId123",
+        "session_date": "2026-08-26", "start": "17:00", "end": "18:30",
+        "grace": "10", "cohort": "Spring 2027", "sheet_url": SHEET_URL,
+    })
+    assert WRITTEN["tab"] == "Attendance 2026-08-26 - Spring 2027"
+    assert any("Cohort scored: Spring 2027." in s for s in WRITTEN["summary"])
+
+
+def test_single_cohort_tab_name_stays_plain(client):
+    token = token_from(upload(client).text)
+    client.post("/write", data={
+        "token": token, "sheet_id": "1AbCdEf_TestSheetId123",
+        "session_date": "2026-08-26", "start": "17:00", "end": "18:30",
+        "grace": "10", "cohort": "", "sheet_url": SHEET_URL,
+    })
+    assert WRITTEN["tab"] == "Attendance 2026-08-26"
+
+
+def test_unknown_cohort_is_a_friendly_error(client, monkeypatch):
+    monkeypatch.setattr(main, "read_roster", two_cohort_roster)
+    token = token_from(upload(client).text)
+    page = client.post("/preview", data={
+        "token": token, "sheet_url": SHEET_URL, "session_date": "2026-08-26",
+        "start": "17:00", "end": "18:30", "grace": "10", "cohort": "Winter 1999",
+    })
+    assert page.status_code == 400
+    assert "No Fellows on the roster are in the cohort" in page.text

@@ -310,3 +310,28 @@ def test_enrollment_status_is_carried_into_the_results():
     report = _score_with(**{"alejandro.aoki@example.com": "Withdrawn"})
     assert find(report, "alejandro.aoki@example.com").enrollment_status == "Withdrawn"
     assert find(report, "reza.ahmadi@example.com").enrollment_status == "Active"
+
+
+# --- cohort helpers -------------------------------------------------------
+
+def test_available_cohorts_counts_active_separately():
+    from app.attendance import available_cohorts
+    fellows = [
+        Fellow(name="A", email="a@x", cohort="Fall 2026", enrollment_status="Active"),
+        Fellow(name="B", email="b@x", cohort="Fall 2026", enrollment_status="Withdrawn"),
+        Fellow(name="C", email="c@x", cohort="Spring 2027", enrollment_status="Active"),
+    ]
+    assert available_cohorts(fellows) == [("Fall 2026", 2, 1), ("Spring 2027", 1, 1)]
+
+
+def test_blank_cohort_is_still_selectable():
+    from app.attendance import available_cohorts, filter_by_cohort
+    fellows = [Fellow(name="A", email="a@x", cohort="", enrollment_status="Active")]
+    assert available_cohorts(fellows) == [("", 1, 1)]
+    assert len(filter_by_cohort(fellows, "*")) == 1
+
+
+def test_cohort_filter_ignores_case_and_padding():
+    from app.attendance import filter_by_cohort
+    fellows = [Fellow(name="A", email="a@x", cohort=" Fall 2026 ", enrollment_status="Active")]
+    assert len(filter_by_cohort(fellows, "fall 2026")) == 1

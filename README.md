@@ -41,6 +41,9 @@ That's it. You will not have to do this again for this Sheet.
    and the date is read from the file. Change them if this session was
    different.
 5. **Click "Check attendance."** Nothing is saved yet.
+   - *If your roster has more than one cohort*, you'll be asked which one this
+     session was for. Pick it and continue. Rosters with a single cohort skip
+     this step entirely.
 6. **Look over the results.** The page shows how many Fellows were present and
    absent, flags anything worth a second look, and lists anyone in the Zoom file
    who isn't on your roster.
@@ -77,6 +80,9 @@ they're shown so you can check nobody was missed.
 
 - **Uploading the same session twice is safe.** The app replaces that session's
   tab rather than adding a second copy.
+- **Two cohorts can meet on the same day.** When your roster has several
+  cohorts, the tab name includes the cohort (`Attendance 2026-08-26 - Fall 2026`)
+  so the two don't overwrite each other.
 - **The first load of the day may take up to a minute.** The free hosting plan
   puts the app to sleep when it's not being used.
 - **Nothing is saved until you press Save.** You can always go back and change
@@ -101,7 +107,7 @@ Browser ──upload CSV──> FastAPI ──reads roster──> Google Sheets 
 | Web framework | FastAPI + Jinja templates, server-rendered | No build step, no JavaScript framework; the whole UI is three pages |
 | Hosting | Render free tier | Free public URL, deploys from a repo, `render.yaml` included |
 | Google access | **Service account**, not end-user OAuth | Staff never see a consent screen and there's no token to refresh. The cost is one manual share step, done once |
-| Scoring | Pure functions in `app/scoring.py` + `app/attendance.py` | No network or credentials needed to test the part that decides pass/fail — 52 tests run in under a second |
+| Scoring | Pure functions in `app/scoring.py` + `app/attendance.py` | No network or credentials needed to test the part that decides pass/fail — 62 tests run in under a second |
 | State | Upload held in memory for an hour, keyed by a random token | Lets *preview → save* work without re-uploading. Not durable, and deliberately so: there's nothing here worth persisting |
 
 ```
@@ -112,8 +118,8 @@ app/
   attendance.py  orchestration: rows + roster + window -> results
   sheets.py      the only module that talks to Google
   main.py        HTTP routes
-  templates/     three pages
-tests/           52 tests, Google stubbed out
+  templates/     four pages
+tests/           62 tests, Google stubbed out
 sample_output/   what the sample data produces
 ```
 
@@ -208,6 +214,36 @@ Any status other than `Active` (or blank/`Enrolled`/`Current`) is treated this
 way, so `On Leave` or `Paused` would work without a code change — the roster's
 wording flows straight through.
 
+**Cohorts**
+
+A roster can hold several cohorts, and a session normally belongs to one of
+them. Scoring the whole roster every time would mark an entire cohort absent
+for a session they were never invited to — the same quiet error as the
+enrollment case above, at a much larger scale.
+
+The app reads the distinct values in the `Cohort` column and, **only when there
+is more than one**, asks which cohort the session was for before scoring
+anything. Decisions inside that:
+
+- **The question is skipped entirely for a single-cohort roster.** Your current
+  roster is uniformly `Fall 2026`, so staff never see this step. Asking a
+  non-technical user to choose from a list of one is noise.
+- **The chooser shows active Fellow counts per cohort**, so it's obvious which
+  option is the plausible one.
+- **"Every cohort" stays available** for a joint session or an all-hands.
+- **The cohort can be changed on the results page** without re-uploading, the
+  same way session times can.
+- **The tab name carries the cohort** when the roster has several, so two
+  cohorts meeting on the same date write to separate tabs instead of silently
+  overwriting one another.
+- **A blank `Cohort` cell is a selectable group**, not an error. Fellows with no
+  cohort listed stay reachable rather than becoming impossible to score.
+- **Matching ignores case and surrounding spaces**, so `Fall 2026` and
+  ` fall 2026 ` are the same cohort.
+
+The chosen cohort is recorded in the summary block written into the Sheet, so
+the tab says what it covers.
+
 **Writing back**
 
 | Decision | Why |
@@ -231,16 +267,19 @@ your Google Sheet):
 - **0 not scored** — every Fellow in this fixture is `Active`. Marking four of
   them `Withdrawn`/`Removed` moves the totals to 228 present, 38 absent,
   4 not scored, with the two who attended flagged for review
+- **One cohort**, so the cohort question never appears. Splitting the fixture
+  into two cohorts (159 and 111 active Fellows) makes it appear and scopes the
+  results to the chosen half
 
 Full output: `sample_output/attendance-2026-08-26.csv`.
 
 ### Assumptions
 
-1. **One cohort.** The roster's `Cohort` column is uniformly `Fall 2026`, as
-   confirmed for this exercise, so no cohort filter is applied. If a second
-   cohort is ever added, every Fellow would be scored against every session.
-   The fix mirrors the enrollment filter described above.
-   (`Enrollment Status` **is** handled — see "Fellows who have left the program".)
+1. **A session belongs to one cohort.** When a roster holds several cohorts the
+   app asks which one, and scores only that group. A session genuinely shared
+   between two cohorts is handled by the "Every cohort" option, but there's no
+   way to select *two of three* — that would need checkboxes rather than a
+   single choice, and no such session exists yet.
 2. **The roster is the first tab** of the Sheet, with a header row containing a
    name column and an email column. Other column names are tolerated.
 3. **Emails identify people.** Two Fellows sharing an email would collide; the
@@ -290,7 +329,7 @@ Then open http://127.0.0.1:8000.
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q      # 52 tests, no network or credentials needed
+python -m pytest tests/ -q      # 62 tests, no network or credentials needed
 ```
 
 ### Creating the Google service account

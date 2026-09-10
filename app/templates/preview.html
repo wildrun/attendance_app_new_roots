@@ -6,6 +6,8 @@
   {{ window.start.strftime('%A %d %B %Y') }},
   {{ window.start.strftime('%I:%M %p').lstrip('0') }} to {{ window.end.strftime('%I:%M %p').lstrip('0') }}
   ({{ window.minutes|round|int }} minutes) &middot; roster tab &ldquo;{{ roster_tab }}&rdquo;
+  {% if multi_cohort %}&middot; cohort
+    <strong>{{ cohort if cohort != all_cohorts else "every cohort" }}</strong>{% endif %}
   &middot; from {{ filename }}
 </p>
 
@@ -37,7 +39,7 @@
 {% endif %}
 
 <form method="post" action="/preview" enctype="multipart/form-data" class="card">
-  <label>Not the right session times?</label>
+  <label>Not the right session{% if multi_cohort %} or cohort{% endif %}?</label>
   <p class="hint">Adjust and re-check. Nothing is saved until you press save.</p>
   <input type="hidden" name="token" value="{{ token }}">
   <input type="hidden" name="sheet_url" value="{{ sheet_url }}">
@@ -50,6 +52,17 @@
       <input type="time" id="e" name="end" value="{{ end }}"></div>
     <div class="field"><label for="g" class="hint">Minutes allowed to miss</label>
       <input type="number" id="g" name="grace" value="{{ grace }}" min="0" max="240" step="1"></div>
+    {% if multi_cohort %}
+    <div class="field" style="min-width:210px"><label for="c" class="hint">Cohort</label>
+      <select id="c" name="cohort">
+        {% for name, total, active in cohorts %}
+        <option value="{{ name }}" {% if name == cohort %}selected{% endif %}>
+          {{ name or "(no cohort listed)" }} — {{ active }} active</option>
+        {% endfor %}
+        <option value="{{ all_cohorts }}" {% if cohort == all_cohorts %}selected{% endif %}>
+          Every cohort</option>
+      </select></div>
+    {% else %}<input type="hidden" name="cohort" value="{{ cohort }}">{% endif %}
   </div>
   <button type="submit" class="secondary">Re-check with these times</button>
 </form>
@@ -117,12 +130,13 @@
   <input type="hidden" name="start" value="{{ start }}">
   <input type="hidden" name="end" value="{{ end }}">
   <input type="hidden" name="grace" value="{{ grace }}">
+  <input type="hidden" name="cohort" value="{{ cohort }}">
   <label>Save these results</label>
   <p class="hint">This adds a tab called <strong>{{ tab_name }}</strong> to your Google Sheet.
     Your roster tab is not changed.</p>
   <div class="actions">
     <button type="submit">Save to Google Sheet</button>
-    <a href="/download/{{ token }}?session_date={{ session_date }}&amp;start={{ start }}&amp;end={{ end }}&amp;grace={{ grace }}&amp;sheet_id={{ sheet_id }}">
+    <a href="/download/{{ token }}?session_date={{ session_date }}&amp;start={{ start }}&amp;end={{ end }}&amp;grace={{ grace }}&amp;sheet_id={{ sheet_id }}&amp;cohort={{ cohort|urlencode }}">
       <button type="button" class="secondary">Download as CSV instead</button></a>
   </div>
 </form>
